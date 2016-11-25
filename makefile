@@ -15,4 +15,4 @@ link:
 	ln -sf SFS diskput
 
 clean:
-	rm -rf *.o ./SFS ./disk*
+	rm -rf *.o ./SFS
