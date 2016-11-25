@@ -148,7 +148,7 @@ void diskinfo(byte* disk)
 
 	FAT_entry* table = calloc(1, FAT_size* sizeof(FAT_entry));
 	
-	unsigned int num_free = 0;
+	unsigned int num_alloced = 0;
 	unsigned int num_files = 0;
 
 	for (int i = 0; i < FAT_size; ++i)
@@ -161,31 +161,51 @@ void diskinfo(byte* disk)
 		
 		if (i % 2 == 0)
 		{	
-			table[i].H = b.L;
+			table[i].L = b.L;
 			table[i].M = a.H;
-			table[i].L = a.L;
+			table[i].H = a.L;
 		}
 		else
 		{
-			table[i].H = b.H;
+			table[i].L = b.H;
 			table[i].M = b.L;
-			table[i].L = a.H;
+			table[i].H = a.H;
 		}
 		
-		// Increment the num_free counter if this FAT entry is 0
-		if (table[i].value != 0)
-			num_free += 1;
-
-		if (i != 1 && table[i].value == 0xFFF)
+		// Increment the num_alloced counter if this FAT entry is non-zero
+		// Fat entries 0 and 1 are reserved
+		if (i > 1 && table[i].value != 0)
 		{
-			if (disk[data_offset + 31 + table[i].value + 11].value != 0x10)
-				num_files += 1;			
+			num_alloced += 1;
+		
+			directory_entry sector;
+		
+			for ( int j = 0; j < 32; ++j)
+			{
+				sector._[j].value = disk[root_offset + (i-2) * 32 + j].value;
+			}
+			
+			// Collect and count things here
+			if (sector._[0].value != 0x0 && sector._[0].value != 0xE5)
+			if ((sector.data.Attributes.value & (READ_ONLY | HIDDEN | VOL_LABEL | SYSTEM | SUBDIR | ARCHIVE)) == 0)
+			{
+				// This thing is a file
+				num_files += 1;
+			}
+			
+			if (sector.data.Attributes.value == VOL_LABEL)
+			{
+				for (int j = 0; j < 8; ++j)
+				{
+					boot.data.Volume_Label[j].value = sector.data.Filename[j].value;
+				}
+			}
 		}
 	}
 
 	free(table);
 
-	unsigned int free_space = total_size - num_free * boot.data.Sectors_Per_Cluster.value * boot.data.Bytes_Per_Sector.value; 
+	unsigned int free_space = total_size - num_alloced * boot.data.Sectors_Per_Cluster.value * boot.data.Bytes_Per_Sector.value; 
 	
 	// I could copy these to real char[]'s rather than byte[]'s but it works as is
 	#pragma GCC diagnostic ignored "-Wformat"	

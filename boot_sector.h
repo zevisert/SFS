@@ -101,3 +101,42 @@ typedef struct boot_sector_t
 		struct boot_sector_portions data;
 	};
 } boot_sector;
+
+#pragma pack(push)
+struct directory_entry_portions
+{
+  byte Filename[8]; // (but see notes below about the first byte in this field)
+  byte Extension[3];
+  byte Attributes; // (see details below)
+  word Reserved;
+  word Creation_Time;
+  word Creation_Date;
+  word Last_Access_Date;
+  word Ignore_in_FAT12;
+  word Last_Write_Time;
+  word Last_Write_Date;
+  word First_Logical_Cluster;
+  dword File_Size; // (in bytes)
+};
+#pragma pack(pop)
+
+typedef struct 
+{
+	union
+	{
+		byte _[32];
+		struct directory_entry_portions data;
+	};
+} directory_entry;
+
+typedef enum 
+{
+	READ_ONLY = 0x01,
+	HIDDEN    = 0x02,
+	SYSTEM    = 0x04,
+	VOL_LABEL = 0x08,
+	SUBDIR    = 0x10,
+	ARCHIVE   = 0x20
+} DIR_ATTR;
+
+
