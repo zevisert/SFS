@@ -316,8 +316,6 @@ int main(int argc, char** argv)
 {
 	DISK_ACTION run_prog = checkProgram(argv[0]);
 
-	run_prog = DISKINFO;
-
 	byte* disk = NULL;
 	
 	if (run_prog == DISK_ACTION_NONE)
