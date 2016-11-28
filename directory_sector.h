@@ -90,7 +90,7 @@ typedef enum
 	ARCHIVE   = 0x20
 } DIR_ATTR;
 
-inline directory_entry initialize_write_sector(FILE* file, const char* input_filename)
+extern inline directory_entry initialize_write_sector(FILE* file, const char* input_filename)
 {
 	int file_descriptor = fileno(file);
 	struct stat info;

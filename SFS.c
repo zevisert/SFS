@@ -162,7 +162,7 @@ void diskinfo(const byte* disk)
 	// Scan through the fat table 
 	for (int i = 0; i < boot_calc.FAT_size; ++i)
 	{
-		load_FAT_entry(&table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
 		
 		// Try and interpret the contents of the root directory sector for this FAT
 		// entry if the entry is non-zero
@@ -177,9 +177,9 @@ void diskinfo(const byte* disk)
 			directory_entry sector;
 		
 			// Initialize the sector with the disk contents
-			for (int j = 0; j < 32; ++j)
+			for (int j = 0; j < sizeof(directory_entry); ++j)
 			{
-				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * 32 + j].value;
+				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * sizeof(directory_entry) + j].value;
 			}
 			
 			// Inspect the sector for files
@@ -265,7 +265,7 @@ void disklist(const byte* disk)
 	// Scan through the fat table 
 	for (int i = 0; i < boot_calc.FAT_size; ++i)
 	{
-		load_FAT_entry(&table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
 		
 		// Try and interpret the contents of the root directory sector for this FAT
 		// entry if the entry is non-zero
@@ -277,9 +277,9 @@ void disklist(const byte* disk)
 			directory_entry sector;
 		
 			// Initialize the sector with the disk contents
-			for (int j = 0; j < 32; ++j)
+			for (int j = 0; j < sizeof(directory_entry); ++j)
 			{
-				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * 32 + j].value;
+				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * sizeof(directory_entry) + j].value;
 			}
 			
 			// Inspect the sector for files
@@ -325,6 +325,7 @@ void disklist(const byte* disk)
 
 void diskget(const byte* disk, const char* get_filename)
 {
+	bool success = false;
 	// Boot sector is a properly aligned and packed
 	// unionized structure representing the boot sector of
 	// a FAT12 disk image.
@@ -356,7 +357,7 @@ void diskget(const byte* disk, const char* get_filename)
 	// Load the fat table so we can jump around later
 	for (int i = 0; i < boot_calc.FAT_size; ++i)
 	{
-		load_FAT_entry(&table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
 	}
 
 	// Scan the fat table
@@ -373,7 +374,7 @@ void diskget(const byte* disk, const char* get_filename)
 			directory_entry sector;
 		
 			// Initialize the sector with the disk contents
-			for (int j = 0; j < 32; ++j)
+			for (int j = 0; j < sizeof(directory_entry); ++j)
 			{
 				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * sizeof(directory_entry) + j].value;
 			}
@@ -397,6 +398,17 @@ void diskget(const byte* disk, const char* get_filename)
 				// Place the extension after the last padded space
 				filename[++j] = '.';
 				memcpy(&filename[j + 1], sector.data.Extension, LEN_Extension);
+				
+				// Trim spaces from the extension if any
+				j += LEN_Extension; 
+				for (; j > 0; --j)
+				{
+					if (filename[j] == ' ')
+					{
+						filename[j] = '\0';
+					}
+					else break; 
+				}
 
 				if (strcasecmp(filename, get_filename) == 0)
 				{
@@ -427,6 +439,7 @@ void diskget(const byte* disk, const char* get_filename)
 						fclose(out);
 		
 						// End the program
+						success = true;
 						break;
 					}
 					
@@ -436,9 +449,10 @@ void diskget(const byte* disk, const char* get_filename)
 		}
 	}
 
-
 	// Done examining the FAT table, copied everything needed
 	free(table);
+
+	printf("%s\n", success ? "File retrieved." : "Failed to retrieve file");
 }
 
 void diskput(byte* disk, FILE* file, const char* input_filename)
@@ -479,7 +493,7 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 	// Load the fat table so we can jump around later
 	for (int i = 0; i < boot_calc.FAT_size; ++i)
 	{
-		load_FAT_entry(&table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
 
 		// The FAT entry is non-zero, so the corresponding data region is allocated
 		num_alloced += (table[i].value != 0) ? 1 : 0;
@@ -538,16 +552,10 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 				}
 			}
 
-			// Write the corresponding block of data to the data region
+			// Calculate location and size of the block write
 			sector_location = boot_calc.data_offset + (i - 2) * boot.data.Bytes_Per_Sector.value;
 			bytes_to_copy = MIN(file_size_remaining, boot.data.Bytes_Per_Sector.value);
 			file_size_remaining -= file_size_remaining > boot.data.Bytes_Per_Sector.value ? boot.data.Bytes_Per_Sector.value : file_size_remaining;
-
-			memset(&block, NULL, boot.data.Bytes_Per_Sector.value);
-			fread(&block, sizeof(char), bytes_to_copy, file);
-			
-			// Write this block to the disk
-			memcpy(&disk[sector_location], block, bytes_to_copy);
 
 			// Location of the next FAT entry
 			int next = 0xFFF;
@@ -567,8 +575,15 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 			table[update_idx].value = next;
 
 			// Propigate the changes to the two tables on the disk			
-			update_disk_FAT(&table, disk, boot_calc.FAT1_offset, update_idx);
-			update_disk_FAT(&table, disk, boot_calc.FAT2_offset, update_idx);
+			update_disk_FAT(table, disk, boot_calc.FAT1_offset, update_idx);
+			update_disk_FAT(table, disk, boot_calc.FAT2_offset, update_idx);
+
+			// With FAT tables updated, write the corresponding block of data to the data region
+			memset(&block, NULL, boot.data.Bytes_Per_Sector.value);
+			fread(&block, sizeof(char), bytes_to_copy, file);
+			
+			// Write this block to the disk
+			memcpy(&disk[sector_location], block, bytes_to_copy);
 
 			// There's no more data, next is 0xFFF
 			if (next == 0xFFF)
