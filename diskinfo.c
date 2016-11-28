@@ -12,6 +12,7 @@
  * Scan over the boot and root directories and gather some common statistics about the disk.
  * @param const byte* : disk - A pointer to a memory mapped array representing a FAT12 disk image
  * @returns void - Collected information is printed to the console as this routine is completed.
+ *               - Otherwise the program prints an error to the console and exits with EXIT_FAILURE.
  */ 
 void diskinfo(const byte* disk)
 {
@@ -52,13 +53,13 @@ void diskinfo(const byte* disk)
 	unsigned int num_files = 0;
 
 	// Scan through the fat table 
-	for (int i = 0; i < boot_calc.FAT_size; ++i)
+	for (int FAT_idx = 0; FAT_idx < boot_calc.FAT_size; ++FAT_idx)
 	{
-		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, FAT_idx);
 		
 		// Try and interpret the contents of the root directory sector for this FAT
 		// entry if the entry is non-zero
-		if (table[i].value != 0)
+		if (table[FAT_idx].value != 0)
 		{
 			// The FAT entry is non-zero, so the corresponding data region is allocated
 			num_alloced += 1;
@@ -69,9 +70,9 @@ void diskinfo(const byte* disk)
 			directory_entry sector;
 		
 			// Initialize the sector with the disk contents
-			for (int j = 0; j < sizeof(directory_entry); ++j)
+			for (int i = 0; i < sizeof(directory_entry); ++i)
 			{
-				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * sizeof(directory_entry) + j].value;
+				sector.raw[i].value = disk[boot_calc.root_offset + (FAT_idx - 2) * sizeof(directory_entry) + i].value;
 			}
 			
 			// Inspect the sector for files
@@ -79,7 +80,7 @@ void diskinfo(const byte* disk)
 				sector.raw[0].value != 0xE5 &&
 				(sector.data.Attributes.value & (VOL_LABEL | SYSTEM | SUBDIR | ARCHIVE)) == 0)
 			{
-					// This thing is a file
+				// This thing is a file
 				num_files += 1;
 			}
 			
@@ -88,9 +89,9 @@ void diskinfo(const byte* disk)
 			if (sector.data.Attributes.value == VOL_LABEL)
 			{
 				// Found a volume label, we'll store in the boot sector's heap memory
-				for (int j = 0; j < LEN_Volume_Label; ++j)
+				for (int i = 0; i < LEN_Volume_Label; ++i)
 				{
-					label[j] = sector.data.Filename[j].value;
+					label[i] = sector.data.Filename[i].value;
 				}
 			}
 		}

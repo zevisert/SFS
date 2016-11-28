@@ -8,6 +8,12 @@
 
 #include "SFS.h"
 
+/* DISK LIST
+ * List the contents of the root directory of the disk.
+ * @param const byte* : disk - A pointer to a memory mapped array representing a FAT12 disk image
+ * @returns void - The list of files is printed to the console.
+ *               - Otherwise the program terminates with EXIT_FAILURE.
+ */ 
 void disklist(const byte* disk)
 {
 	// Boot sector is a properly aligned and packed
@@ -39,13 +45,13 @@ void disklist(const byte* disk)
 	memset(&filename, '\0', LEN_Filename + 1 + LEN_Extension + 1);
 	
 	// Scan through the fat table 
-	for (int i = 0; i < boot_calc.FAT_size; ++i)
+	for (int FAT_idx = 0; FAT_idx < boot_calc.FAT_size; ++FAT_idx)
 	{
-		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, FAT_idx);
 		
 		// Try and interpret the contents of the root directory sector for this FAT
 		// entry if the entry is non-zero
-		if (table[i].value != 0)
+		if (table[FAT_idx].value != 0)
 		{
 			// Just like for the boot data sector this type
 			// is a properly aligned and packed unionized structure
@@ -55,7 +61,7 @@ void disklist(const byte* disk)
 			// Initialize the sector with the disk contents
 			for (int j = 0; j < sizeof(directory_entry); ++j)
 			{
-				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * sizeof(directory_entry) + j].value;
+				sector.raw[j].value = disk[boot_calc.root_offset + (FAT_idx - 2) * sizeof(directory_entry) + j].value;
 			}
 			
 			// Inspect the sector for files

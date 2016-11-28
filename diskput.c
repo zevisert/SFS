@@ -9,6 +9,14 @@
 
 #include "SFS.h"
 
+/* DISK PUT
+ * Add a file to the root directory of the disk.
+ * @param const byte* : disk - A pointer to a memory mapped array representing a FAT12 disk image
+ * @param FILE*       : file - An already opened file stream to be copied to the @param(disk)
+ * @param const char* : input_filename - A string representing the filename to use on the @param(disk) image.
+ * @returns void - Operation status is printed to the console.
+ *               - Otherwise the program terminates with EXIT_FAILURE.
+ */ 
 void diskput(byte* disk, FILE* file, const char* input_filename)
 {
 	// Used for logging a status message at completion
@@ -45,12 +53,12 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 	
 	unsigned int num_alloced = 0; 
 	// Load the fat table so we can jump around later
-	for (int i = 0; i < boot_calc.FAT_size; ++i)
+	for (int FAT_idx = 0; FAT_idx < boot_calc.FAT_size; ++FAT_idx)
 	{
-		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, FAT_idx);
 
 		// The FAT entry is non-zero, so the corresponding data region is allocated
-		num_alloced += (table[i].value != 0) ? 1 : 0;
+		num_alloced += (table[FAT_idx].value != 0) ? 1 : 0;
 	}
 	
 	// Calculate the remainder (free) space using the number of allocated entries 
@@ -75,11 +83,11 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 	char* filename_compare = calloc(1, LEN_Filename + 1 + LEN_Extension + 1);
 
 	// Check if a file with this name already exists
-	for (int i = boot_calc.root_offset; i < boot_calc.data_offset; i += sizeof(directory_entry))
+	for (int entry_offset = boot_calc.root_offset; entry_offset < boot_calc.data_offset; entry_offset += sizeof(directory_entry))
 	{
 		for (int j = 0; j < sizeof(directory_entry); ++j)
 		{
-			existing_entry.raw[j].value = disk[i + j].value;		
+			existing_entry.raw[j].value = disk[entry_offset + j].value;		
 		}
 		
 		if (existing_entry.raw[0].value != 0x0 &&
@@ -110,27 +118,27 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 	char block[boot.data.Bytes_Per_Sector.value];
 	
 	// Scan the fat table
-	for (int i = 2; file_size_remaining > 0 && i < boot_calc.FAT_size; ++i)
+	for (int FAT_idx = 2; file_size_remaining > 0 && FAT_idx < boot_calc.FAT_size; ++FAT_idx)
 	{
 		// Check each entry for an empty identifier, meaning we can write here
-		if (table[i].value == 0)
+		if (table[FAT_idx].value == 0)
 		{
 			// Cache the value of the first logical cluster
 			if (found_first == false)
 			{
-				write_sector.data.First_Logical_Cluster.value = i;
+				write_sector.data.First_Logical_Cluster.value = FAT_idx;
 				found_first = true;
 				
 				// Find a free directory entry
-				for (int k = 2; boot_calc.root_offset + (k - 2) * sizeof(directory_entry) < boot_calc.data_offset; ++k)
+				for (int entry_offset = boot_calc.root_offset; entry_offset < boot_calc.data_offset; entry_offset += sizeof(directory_entry))
 				{
-					byte first_byte = disk[boot_calc.root_offset + (k - 2) * sizeof(directory_entry)];
+					byte first_byte = disk[entry_offset];
 					if (first_byte.value == 0x00 || first_byte.value == 0xE5)
 					{
 						// Overwrite the a free directory entry with our directory info.
 						for (int j = 0; j < sizeof(directory_entry); ++j)
 						{
-							disk[boot_calc.root_offset + (k - 2) * sizeof(directory_entry) + j].value = write_sector.raw[j].value;
+							disk[entry_offset + j].value = write_sector.raw[j].value;
 						}
 						break;
 					}
@@ -138,22 +146,22 @@ void diskput(byte* disk, FILE* file, const char* input_filename)
 			}
 
 			// Calculate location and size of the block write
-			sector_location = boot_calc.data_offset + (i - 2) * boot.data.Bytes_Per_Sector.value;
+			sector_location = boot_calc.data_offset + (FAT_idx - 2) * boot.data.Bytes_Per_Sector.value;
 			bytes_to_copy = MIN(file_size_remaining, boot.data.Bytes_Per_Sector.value);
 			file_size_remaining -= file_size_remaining > boot.data.Bytes_Per_Sector.value ? boot.data.Bytes_Per_Sector.value : file_size_remaining;
 
 			// Location of the next FAT entry
 			int next = 0xFFF;
-			int update_idx = i;
+			int update_idx = FAT_idx;
 			// Do we need another sector to complete the write?
 			if (file_size_remaining > 0)
 			{
 				// Seek to the next free FAT entry
-				for (next = i + 1; table[next].value != 0 && next < boot_calc.FAT_size; ++next)
+				for (next = FAT_idx + 1; table[next].value != 0 && next < boot_calc.FAT_size; ++next)
 					;
 
 				// Continue the next round from next, use -1 here because loop will auto-increment i
-				i = next - 1;
+				FAT_idx = next - 1;
 			}
 
 			// Point this FAT entry to the next one

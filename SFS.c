@@ -12,6 +12,7 @@
 
 #include "SFS.h"
 
+// Our 4 processes, defintions required here since they're in seperate C files
 extern void diskinfo(const byte* disk);
 extern void disklist(const byte* disk);
 extern void diskget(const byte* disk, const char* filename);

@@ -9,6 +9,12 @@
 
 #include "SFS.h"
 
+/* DISK GET
+ * Retrieve a file from the root directory of the disk.
+ * @param const byte* : disk - A pointer to a memory mapped array representing a FAT12 disk image
+ * @param const char* : get_filename - A case-insensitive string of the filename to retrieve from the root directory of @param(disk)
+ * @returns void - Status is printed to the console, or on failure terminates with EXIT_FAILURE.
+ */ 
 void diskget(const byte* disk, const char* get_filename)
 {
 	bool success = false;
@@ -41,17 +47,17 @@ void diskget(const byte* disk, const char* get_filename)
 	memset(&filename, '\0', LEN_Filename + 1 + LEN_Extension + 1);
 	
 	// Load the fat table so we can jump around later
-	for (int i = 0; i < boot_calc.FAT_size; ++i)
+	for (int FAT_idx = 0; FAT_idx < boot_calc.FAT_size; ++FAT_idx)
 	{
-		load_FAT_entry(table, disk, boot_calc.FAT1_offset, i);
+		load_FAT_entry(table, disk, boot_calc.FAT1_offset, FAT_idx);
 	}
 
 	// Scan the fat table
-	for (int i = 2; i < boot_calc.FAT_size; ++i)
+	for (int FAT_idx = 2; FAT_idx < boot_calc.FAT_size; ++FAT_idx)
 	{
 		// Try and interpret the contents of the root directory sector for this FAT
 		// entry if the entry is non-zero
-		if (table[i].value != 0)
+		if (table[FAT_idx].value != 0)
 		{
 		
 			// Just like for the boot data sector this type
@@ -60,9 +66,9 @@ void diskget(const byte* disk, const char* get_filename)
 			directory_entry sector;
 		
 			// Initialize the sector with the disk contents
-			for (int j = 0; j < sizeof(directory_entry); ++j)
+			for (int i = 0; i < sizeof(directory_entry); ++i)
 			{
-				sector.raw[j].value = disk[boot_calc.root_offset + (i - 2) * sizeof(directory_entry) + j].value;
+				sector.raw[i].value = disk[boot_calc.root_offset + (FAT_idx - 2) * sizeof(directory_entry) + i].value;
 			}
 
 			// Inspect the sector for files

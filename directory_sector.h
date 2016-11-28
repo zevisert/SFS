@@ -57,8 +57,9 @@
 	(((M) << TIME_MINUTE_OFFSET) & TIME_MINUTE_MASK) | \
 	(((S) << TIME_SECOND_OFFSET) & TIME_SECOND_MASK))
 
-#define LEN_Filename 8
-#define LEN_Extension 3
+#define LEN_Filename        8
+#define LEN_Extension       3
+#define LEN_Directory_Entry 32
 
 #pragma pack(push, 4)
 struct directory_entry_portions
@@ -82,46 +83,57 @@ typedef struct
 {
 	union
 	{
-		byte raw[32];
+		byte raw[LEN_Directory_Entry];
 		struct directory_entry_portions data;
 	};
 } directory_entry;
 
 typedef enum 
 {
-	READ_ONLY = 0x01,
-	HIDDEN    = 0x02,
-	SYSTEM    = 0x04,
-	VOL_LABEL = 0x08,
-	SUBDIR    = 0x10,
-	ARCHIVE   = 0x20
+	READ_ONLY = (1u << 0),
+	HIDDEN    = (1u << 1),
+	SYSTEM    = (1u << 2),
+	VOL_LABEL = (1u << 3),
+	SUBDIR    = (1u << 4),
+	ARCHIVE   = (1u << 5)
 } DIR_ATTR;
 
 static inline directory_entry initialize_write_sector(FILE* file, const char* input_filename)
 {
+	// Return var
+	directory_entry sector_info;
+
+	// Collect some info about the file we're writing
 	int file_descriptor = fileno(file);
 	struct stat info;
 	fstat(file_descriptor, &info);
-	directory_entry sector_info;
 	
+	// Duplicate the filename so we maintain the const specifer
+	// in the signature, but let us mess with the contents
 	char* filename = strdup(input_filename);
 	char* extension = strrchr(filename, '.');
+	
+	// If this file has an extension, put a terminating char right before it, 
+	// this seperates our string into filename\0extension
 	if (extension)
 	{
 		*extension++ = '\0';
 	}
 
+	// Preset the whole filename with spaces in our sector
 	memset(&sector_info.data.Filename, ' ', LEN_Filename);
+	// Overwrite spaces with the actual filename, truncating if necessary
 	memcpy(&sector_info.data.Filename, filename, strnlen(filename, LEN_Filename));
 
+	// Same for the extension, preset with spaces for padding
 	memset(&sector_info.data.Extension, ' ', LEN_Extension);
 	if (extension)
 	{
+		// Truncate if necessary
 		memcpy(&sector_info.data.Extension, extension, strnlen(extension, LEN_Extension));		
 	}
 
 	free(filename);
-
 
 	// These properties will always be 0 for our purposes
 	sector_info.data.Attributes.value = 0;

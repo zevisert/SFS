@@ -10,10 +10,11 @@
 #define STR(X) #X			  
 #endif // !STR
 
-#define LEN__JUMP               3
-#define LEN_OEM_name            8
-#define LEN_Volume_Label       11
-#define LEN_File_System_Type    8
+#define LEN__JUMP                3
+#define LEN_OEM_name             8
+#define LEN_Volume_Label         11
+#define LEN_File_System_Type     8
+#define LEN_Boot_Sector_Required 62
 
 #pragma pack(push)
 struct boot_sector_portions
@@ -45,7 +46,7 @@ typedef struct boot_sector_t
 {
 	union
 	{
-		byte raw[62];
+		byte raw[LEN_Boot_Sector_Required];
 		struct boot_sector_portions data;
 	};
 } boot_sector;
@@ -66,7 +67,7 @@ static inline boot_extra initialize_boot(boot_sector* boot, const byte* disk)
 	boot_extra extra;
 	
 	// Initialize the boot sector struct by copying in data from the disk.
-	for (int i = 0; i < 62; ++i)
+	for (int i = 0; i < LEN_Boot_Sector_Required; ++i)
 	{
 		boot->raw[i].value = disk[i].value;
 	}
@@ -96,7 +97,7 @@ static inline boot_extra initialize_boot(boot_sector* boot, const byte* disk)
 	// Calculate the location of the start of the data region
 	extra.data_offset = extra.root_offset
 					+ boot->data.Max_Root_Entries.value
-					* 32;
+					* 32; // sizeof(directory_entry)
 	
 	// Total disk size can also be calculated at this point
 	extra.total_size = extra.num_sectors
