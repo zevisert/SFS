@@ -1,5 +1,7 @@
 #pragma once
 
+#include "packed_types.h"
+
 #pragma pack(push, 4)
 typedef union
 {
@@ -13,7 +15,7 @@ typedef union
 } FAT_entry;
 #pragma pack(pop)
 
-extern inline void load_FAT_entry(FAT_entry* table, const byte* disk, unsigned int FAT_offset, int entry)
+static inline void load_FAT_entry(FAT_entry* table, const byte* disk, unsigned int FAT_offset, int entry)
 {
 	// Grab the two bytes that support this FAT entry
 	byte a = disk[FAT_offset + 3 * entry / 2];
@@ -38,7 +40,7 @@ extern inline void load_FAT_entry(FAT_entry* table, const byte* disk, unsigned i
 	}
 }
 
-extern inline void update_disk_FAT(FAT_entry* table, byte* disk, unsigned int FAT_offset, int entry)
+static inline void update_disk_FAT(FAT_entry* table, byte* disk, unsigned int FAT_offset, int entry)
 {
 	// Update the FAT entries on disk
 	byte* a = &disk[FAT_offset + 3 * entry / 2];

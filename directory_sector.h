@@ -1,5 +1,9 @@
 #pragma once
 
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "packed_types.h"
 
 #ifndef VALOF
@@ -18,14 +22,15 @@
 #define DATE_YEAR_MASK    0xFE00
 #define DATE_YEAR_BASE    1980
 
-#define DATE(X) (((X) & DATE_DAY_MASK) >> DATE_DAY_OFFSET), \
-				(((X) & DATE_MONTH_MASK) >> DATE_MONTH_OFFSET), \
-				((((X) & DATE_YEAR_MASK) >> DATE_YEAR_OFFSET) + DATE_YEAR_BASE)
+#define DATE(X) \
+	(((X) & DATE_DAY_MASK) >> DATE_DAY_OFFSET), \
+	(((X) & DATE_MONTH_MASK) >> DATE_MONTH_OFFSET), \
+	((((X) & DATE_YEAR_MASK) >> DATE_YEAR_OFFSET) + DATE_YEAR_BASE)
 
 #define TODATE(D, M, Y) \
-				((((D) << DATE_DAY_OFFSET) & DATE_DAY_MASK) | \
-				 (((M) << DATE_MONTH_OFFSET) & DATE_MONTH_MASK) | \
-				 ((((Y) - DATE_YEAR_BASE) << DATE_YEAR_OFFSET) & DATE_YEAR_MASK))
+	((((D) << DATE_DAY_OFFSET) & DATE_DAY_MASK) | \
+	 (((M) << DATE_MONTH_OFFSET) & DATE_MONTH_MASK) | \
+	 ((((Y) - DATE_YEAR_BASE) << DATE_YEAR_OFFSET) & DATE_YEAR_MASK))
 
 #define TIME_HOUR_MASK     0xF800
 #define TIME_HOUR_OFFSET   11
@@ -34,21 +39,23 @@
 #define TIME_SECOND_MASK   0x001F
 #define TIME_SECOND_OFFSET 0
 
-#define TIME(X) (((X) & TIME_HOUR_MASK) >> TIME_HOUR_OFFSET), \
-				(((X) & TIME_MINUTE_MASK) >> TIME_MINUTE_OFFSET)
+#define TIME(X) \
+	(((X) & TIME_HOUR_MASK) >> TIME_HOUR_OFFSET), \
+	(((X) & TIME_MINUTE_MASK) >> TIME_MINUTE_OFFSET)
 
-#define TIME_S(X) (((X) & TIME_HOUR_MASK) >> TIME_HOUR_OFFSET), \
-				(((X) & TIME_MINUTE_MASK) >> TIME_MINUTE_OFFSET), \
-				(((X) & TIME_SECOND_MASK) >> TIME_SECOND_OFFSET)
+#define TIME_S(X) \
+	(((X) & TIME_HOUR_MASK) >> TIME_HOUR_OFFSET), \
+	(((X) & TIME_MINUTE_MASK) >> TIME_MINUTE_OFFSET), \
+	(((X) & TIME_SECOND_MASK) >> TIME_SECOND_OFFSET)
 	
 #define TOTIME(H, M) \
-			((((H) << TIME_HOUR_OFFSET) & TIME_HOUR_MASK) | \
-			(((M) << TIME_MINUTE_OFFSET) & TIME_MINUTE_MASK) )
+	((((H) << TIME_HOUR_OFFSET) & TIME_HOUR_MASK) | \
+	(((M) << TIME_MINUTE_OFFSET) & TIME_MINUTE_MASK) )
 	
 #define TOTIME_S(H, M, S) \
-			((((H) << TIME_HOUR_OFFSET) & TIME_HOUR_MASK) | \
-			(((M) << TIME_MINUTE_OFFSET) & TIME_MINUTE_MASK) | \
-			(((S) << TIME_SECOND_OFFSET) & TIME_SECOND_MASK))
+	((((H) << TIME_HOUR_OFFSET) & TIME_HOUR_MASK) | \
+	(((M) << TIME_MINUTE_OFFSET) & TIME_MINUTE_MASK) | \
+	(((S) << TIME_SECOND_OFFSET) & TIME_SECOND_MASK))
 
 #define LEN_Filename 8
 #define LEN_Extension 3
@@ -90,7 +97,7 @@ typedef enum
 	ARCHIVE   = 0x20
 } DIR_ATTR;
 
-extern inline directory_entry initialize_write_sector(FILE* file, const char* input_filename)
+static inline directory_entry initialize_write_sector(FILE* file, const char* input_filename)
 {
 	int file_descriptor = fileno(file);
 	struct stat info;
@@ -143,4 +150,33 @@ extern inline directory_entry initialize_write_sector(FILE* file, const char* in
 	sector_info.data.Last_Write_Date.value = sector_info.data.Last_Access_Date.value;
 
 	return sector_info;
+}
+
+static inline void trim_filename(char* buff, byte* Filename, byte* Extension)
+{
+	// Collect and trim padded spaces from the filename
+	memcpy(buff, Filename, LEN_Filename);
+	int j = LEN_Filename - 1; 
+	for (; j > 0; --j)
+	{
+		if (buff[j] == ' ')
+		{
+			buff[j] = '\0';
+		}
+		else break; 
+	}
+	// Place the extension after the last padded space
+	buff[++j] = '.';
+	memcpy(&(buff[j + 1]), Extension, LEN_Extension);
+				
+	// Trim spaces from the extension if any
+	j += LEN_Extension; 
+	for (; j > 0; --j)
+	{
+		if (buff[j] == ' ')
+		{
+			buff[j] = '\0';
+		}
+		else break; 
+	}
 }

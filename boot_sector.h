@@ -61,7 +61,7 @@ typedef struct
 	unsigned int FAT_size;
 } boot_extra;
 
-extern inline boot_extra initialize_boot(boot_sector* boot, const byte* disk)
+static inline boot_extra initialize_boot(boot_sector* boot, const byte* disk)
 {
 	boot_extra extra;
 	
